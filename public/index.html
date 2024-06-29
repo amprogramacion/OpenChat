@@ -1,0 +1,127 @@
+<!-- public/index.html -->
+<!DOCTYPE html>
+<html lang="es">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Chat App</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                display: flex;
+            }
+            #users {
+                width: 20%;
+                background: #f4f4f4;
+                padding: 10px;
+            }
+            #chat {
+                width: 80%;
+                padding: 10px;
+                display: none;
+            }
+            ul {
+                list-style-type: none;
+                padding: 0;
+            }
+            li {
+                padding: 8px;
+                background: #f4f4f4;
+                margin-bottom: 10px;
+                cursor: pointer;
+                position: relative;
+            }
+            .badge {
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                background: red;
+                color: white;
+                border-radius: 50%;
+                padding: 5px 10px;
+            }
+            input {
+                padding: 10px;
+                width: calc(100% - 22px);
+            }
+        </style>
+    </head>
+    <body>
+        <div id="users">
+            <h2>Usuarios conectados</h2>
+            <ul id="user-list"></ul>
+        </div>
+        <div id="chat">
+            <ul id="messages"></ul>
+            <form id="form" action="">
+                <input id="input" autocomplete="off" /><button>Enviar</button>
+            </form>
+        </div>
+
+        <script src="/socket.io/socket.io.js"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const serverUrl = 'wss://localhost:3000';
+                const socket = io(serverUrl);
+                const form = document.getElementById('form');
+                const input = document.getElementById('input');
+                const messages = document.getElementById('messages');
+                const userList = document.getElementById('user-list');
+                const chat = document.getElementById('chat');
+
+                const username = prompt('Introduce tu nombre:');
+                socket.emit('new user', username);
+
+                form.addEventListener('submit', function (e) {
+                    e.preventDefault();
+                    if (input.value) {
+                        socket.emit('chat message', {user: username, msg: input.value});
+                        input.value = '';
+                    }
+                });
+
+                socket.on('chat message', function (data) {
+                    const item = document.createElement('li');
+                    item.textContent = `${data.user}: ${data.msg}`;
+                    messages.appendChild(item);
+                    window.scrollTo(0, document.body.scrollHeight);
+
+                    if (data.user !== username) {
+                        const userItems = userList.querySelectorAll('li');
+                        userItems.forEach(userItem => {
+                            if (userItem.textContent === data.user) {
+                                let badge = userItem.querySelector('.badge');
+                                if (!badge) {
+                                    badge = document.createElement('span');
+                                    badge.classList.add('badge');
+                                    badge.textContent = '1';
+                                    userItem.appendChild(badge);
+                                } else {
+                                    badge.textContent = parseInt(badge.textContent) + 1;
+                                }
+                            }
+                        });
+                    }
+                });
+
+                socket.on('update users', function (users) {
+                    userList.innerHTML = '';
+                    for (let id in users) {
+                        if (users[id] !== username) {
+                            const item = document.createElement('li');
+                            item.textContent = users[id];
+                            item.addEventListener('click', () => {
+                                chat.style.display = 'block';
+                                const badge = item.querySelector('.badge');
+                                if (badge) {
+                                    badge.remove();
+                                }
+                            });
+                            userList.appendChild(item);
+                        }
+                    }
+                });
+            });
+        </script>
+    </body>
+</html>
